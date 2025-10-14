@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Reconocer - Face KNN</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root{ --bg:#030409; --card:#0d1116; --muted:#9aa6b2; --accent:#00d4ff; --success:#2bd39b; }
+    body{ background: linear-gradient(180deg,#020205,#061018); color:#e6eef6; font-family:Inter,Arial; }
+    .wrap{ max-width:900px; margin:36px auto; padding:18px; }
+    .panel{ background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+            border-radius:10px; padding:22px; border:1px solid rgba(255,255,255,0.03); }
+    video{ border-radius:8px; background:#000; display:block; margin-bottom:12px; width:100%; }
+    .btn-action{ border-radius:10px; padding:10px 20px; font-weight:600; }
+    .btn-primary{ background:linear-gradient(90deg,var(--accent),#0091ff); border:none; }
+    .btn-outline-light{ border-radius:10px; }
+    .result-box{ background:#08141a; padding:12px; border-radius:8px;
+                 border:1px solid rgba(255,255,255,0.02); margin-top:15px; }
+    .muted{ color:var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div><h3 class="mb-0">Reconocer</h3><div class="muted">Captura una imagen para identificarla</div></div>
+        <div><a href="/" class="btn btn-sm btn-outline-light">Volver</a></div>
+      </div>
+
+      <div class="text-center mb-3">
+        <video id="video" autoplay playsinline></video>
+        <div class="d-flex justify-content-center gap-3 mt-2">
+          <button id="snap" class="btn btn-action btn-primary">Capturar y reconocer</button>
+          <button id="stopCam" class="btn btn-action btn-outline-light">Detener</button>
+        </div>
+      </div>
+
+      <div class="result-box text-center">
+        <div><strong>Resultado:</strong></div>
+        <div id="resultText" style="font-size:1.2rem; margin-top:6px;">— Aún no capturado —</div>
+        <div id="distText" class="muted small mt-2"></div>
+      </div>
+      <div class="mt-3 muted small text-center">
+        Si está entrenado, el nombre aparecerá y se registrará en la DB.
+      </div>
+    </div>
+  </div>
+
+<script>
+let stream = null;
+async function startCamera(){
+  const v = document.getElementById('video');
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({video:true});
+    v.srcObject = stream;
+  }catch(e){ alert('Error al abrir cámara: '+e); }
+}
+startCamera();
+
+document.getElementById('snap').addEventListener('click', async ()=>{
+  const video = document.getElementById('video');
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth || 560;
+  canvas.height = video.videoHeight || 420;
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  const data = canvas.toDataURL('image/jpeg');
+  const form = new URLSearchParams();
+  form.append('image_data', data);
+  const res = await fetch('/recognize', {method:'POST', body: form});
+  const j = await res.json();
+  if(j.success){
+    document.getElementById('resultText').innerText = j.label ?? 'Desconocido';
+    document.getElementById('distText').innerText = 'Distancia promedio: ' + (j.avg_dist? j.avg_dist.toFixed(1) : 'N/A');
+  } else {
+    document.getElementById('resultText').innerText = 'Error: ' + JSON.stringify(j);
+  }
+});
+
+document.getElementById('stopCam').addEventListener('click', ()=>{
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+});
+</script>
+</body>
+</html>
